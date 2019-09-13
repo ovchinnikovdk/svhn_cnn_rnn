@@ -1,5 +1,5 @@
 import torch
-from torchvision.models.resnet import resnet50
+from torchvision.models.resnet import resnet34
 from torch.nn.utils.rnn import pack_padded_sequence
 
 
@@ -7,24 +7,26 @@ class ConvNet(torch.nn.Module):
     def __init__(self, rnn_hidden=256, out_size=12):
         super(ConvNet, self).__init__()
         self.rnn_hidden = rnn_hidden
-        self.num_layers = 32
+        self.num_layers = 48
         self.out_size = out_size
-        self.encoder = resnet50(pretrained=True)
-        for param in self.encoder.parameters():
-            param.requires_grad = False
+        self.lstm_input_size = 12
+        self.encoder = resnet34(pretrained=True)
+        # for param in self.encoder.parameters():
+        #     param.requires_grad = False
         print(self.encoder.fc.in_features, self.num_layers * self.rnn_hidden)
         self.encoder.fc = torch.nn.Sequential(
-            torch.nn.Linear(self.encoder.fc.in_features, self.encoder.fc.in_features // 2),
-            torch.nn.Dropout(0.3),
-            torch.nn.Linear(self.encoder.fc.in_features // 2, self.num_layers * self.rnn_hidden))
-        self.lstm = torch.nn.LSTM(input_size=out_size,
+            torch.nn.Linear(self.encoder.fc.in_features, self.encoder.fc.in_features),
+            torch.nn.Dropout(0.4),
+            torch.nn.Linear(self.encoder.fc.in_features, self.num_layers * self.rnn_hidden))
+        self.lstm = torch.nn.LSTM(input_size=self.lstm_input_size,
                                   hidden_size=rnn_hidden,
                                   num_layers=self.num_layers,
-                                  dropout=0.2,
+                                  dropout=0.4,
                                   batch_first=True)
         self.linear = torch.nn.Sequential(torch.nn.Linear(rnn_hidden, rnn_hidden // 2),
-                                          torch.nn.Dropout(0.2),
+                                          torch.nn.Dropout(0.4),
                                           torch.nn.Linear(rnn_hidden // 2, out_size))
+        # self.linear = torch.nn.Linear(rnn_hidden, out_size)
         self.hidden_w = None
 
     def forward(self, data):
@@ -35,11 +37,11 @@ class ConvNet(torch.nn.Module):
         start = torch.zeros(nums.shape[0], 1, nums.shape[2]).cuda()
         start[0, 0, 0] = 1
         nums = torch.cat((start, nums), 1)
-        nums = nums[:, :-1, :]
+        # nums = nums[:, :-1, :]
         # nums = pack_padded_sequence(nums, lens, batch_first=True, enforce_sorted=False)
         out, self.hidden_w = self.lstm(nums, (features, torch.zeros_like(features)))
         out = self.linear(out)
-        return out
+        return out[:, :-1, :]
 
     def init_hidden(self, batch_size):
         hidden = torch.zeros(self.num_layers, batch_size, self.rnn_hidden)

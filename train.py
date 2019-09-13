@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 import collections
 import os
 
-model = ConvNet(rnn_hidden=128)
+model = ConvNet(rnn_hidden=96)
 model = model.cuda()
 
 # experiment setup
@@ -19,18 +19,18 @@ num_epochs = 20
 loaders = collections.OrderedDict()
 loaders["train"] = get_loader(os.path.join('data', 'train'),
                               os.path.join('data', 'train.mat'),
-                              batch_size=48,
+                              batch_size=64,
                               shuffle=True)
 loaders["valid"] = get_loader(os.path.join('data', 'test'),
                               os.path.join('data', 'test.mat'),
-                              batch_size=96,
+                              batch_size=128,
                               shuffle=False)
 
 
 criterion = torch.nn.BCEWithLogitsLoss()
 # criterion = torch.nn.MSELoss()
 # criterion = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=8e-4)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2)
 
 # model runner

@@ -25,7 +25,7 @@ class HouseNumberTrainDataset(Dataset):
         filename = self._get_name(idx)
         labels = self._get_labels(idx)
         img = cv2.imread(os.path.join(self.path, filename))
-        img = cv2.resize(img, (64, 32))
+        img = cv2.resize(img, (128, 128))
         if self.transform is not None:
             img = self.transform(img)
         else:

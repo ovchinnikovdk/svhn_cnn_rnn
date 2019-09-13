@@ -3,11 +3,10 @@ from torchvision.transforms import ToTensor
 import torch
 import cv2
 import os
-from torch.nn.functional import softmax
-import  numpy as np
+import numpy as np
 
 model_path = 'logdir/checkpoints/best.pth'
-model = ConvNet(rnn_hidden=312)
+model = ConvNet(rnn_hidden=96)
 model.load_state_dict(torch.load(model_path)['model_state_dict'])
 model.cuda()
 model.eval()
