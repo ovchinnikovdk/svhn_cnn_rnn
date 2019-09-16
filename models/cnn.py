@@ -15,19 +15,17 @@ class ConvNet(torch.nn.Module):
         #     param.requires_grad = False
         print(self.encoder.fc.in_features, self.num_layers * self.rnn_hidden)
         self.encoder.fc = torch.nn.Sequential(
-            torch.nn.Linear(self.encoder.fc.in_features, self.encoder.fc.in_features // 2),
+            torch.nn.Linear(self.encoder.fc.in_features, self.encoder.fc.in_features),
             torch.nn.Dropout(0.4),
-            torch.nn.Linear(self.encoder.fc.in_features // 2, self.lstm_input_size - self.out_size))
-            # torch.nn.Linear(self.encoder.fc.in_features // 2, self.num_layers * self.rnn_hidden))
+            torch.nn.Linear(self.encoder.fc.in_features, self.lstm_input_size - self.out_size))
         self.lstm = torch.nn.LSTM(input_size=self.lstm_input_size,
                                   hidden_size=rnn_hidden,
                                   num_layers=self.num_layers,
                                   dropout=0.4,
                                   batch_first=True)
-        self.linear = torch.nn.Sequential(torch.nn.Linear(rnn_hidden, rnn_hidden // 2),
+        self.linear = torch.nn.Sequential(torch.nn.Linear(rnn_hidden, rnn_hidden),
                                           torch.nn.Dropout(0.4),
-                                          torch.nn.Linear(rnn_hidden // 2, out_size))
-        # self.linear = torch.nn.Linear(rnn_hidden, out_size)
+                                          torch.nn.Linear(rnn_hidden, out_size))
         self.hidden_w = None
 
     def forward(self, data):
@@ -43,8 +41,8 @@ class ConvNet(torch.nn.Module):
         nums = a
         h = torch.zeros(self.num_layers, nums.shape[0], self.rnn_hidden).cuda()
         out, self.hidden_w = self.lstm(nums, (h, torch.zeros_like(h)))
-        out = self.linear(out)
-        return out[:, :-1, :]
+        out = self.linear(out)[:, :-1, :]
+        return torch.nn.Softmax(dim=2)(out)
 
     def init_hidden(self, batch_size):
         hidden = torch.zeros(self.num_layers, batch_size, self.rnn_hidden)
@@ -57,10 +55,11 @@ class ConvNet(torch.nn.Module):
                   torch.zeros(self.num_layers, imgs.shape[0], self.rnn_hidden).cuda())
         inputs = torch.zeros(imgs.shape[0], 1, self.lstm_input_size).cuda()
         inputs[0, 0, 0] = 1
-        inputs[0, 0, 12:] = features
+        inputs[:, 0, self.out_size:] = features
         for i in range(7):
             hiddens, states = self.lstm(inputs, states)
             outputs = self.linear(hiddens.squeeze(1))
+            print(outputs)
             _, predicted = outputs.max(1)
             sampled_ids.append(predicted)
             inputs = torch.cat((outputs, features), 1).unsqueeze(1)

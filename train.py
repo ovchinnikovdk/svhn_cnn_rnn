@@ -1,9 +1,8 @@
-from lib.dataset import HouseNumberTrainDataset
 from models.cnn import ConvNet
 import torch
 from lib.dataset import get_loader
 from catalyst.dl import SupervisedRunner
-from torch.utils.data import DataLoader
+from catalyst.dl.callbacks import AUCCallback, F1ScoreCallback
 import collections
 import os
 
@@ -27,11 +26,11 @@ loaders["valid"] = get_loader(os.path.join('data', 'test'),
                               shuffle=False)
 
 
-criterion = torch.nn.BCEWithLogitsLoss()
-# criterion = torch.nn.MSELoss()
-# criterion = torch.nn.CrossEntropyLoss()
+criterion = torch.nn.BCELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2)
+
+callbacks = None # [AUCCallback(), F1ScoreCallback()]
 
 # model runner
 runner = SupervisedRunner()
@@ -45,5 +44,6 @@ runner.train(
     loaders=loaders,
     logdir=logdir,
     num_epochs=num_epochs,
+    callbacks=callbacks,
     verbose=True
 )
