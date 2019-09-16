@@ -6,7 +6,7 @@ import os
 import numpy as np
 
 model_path = 'logdir/checkpoints/best.pth'
-model = ConvNet(rnn_hidden=96)
+model = ConvNet(rnn_hidden=48)
 model.load_state_dict(torch.load(model_path)['model_state_dict'])
 model.cuda()
 model.eval()

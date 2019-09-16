@@ -30,7 +30,7 @@ class HouseNumberTrainDataset(Dataset):
             img = self.transform(img)
         else:
             img = torchvision.transforms.ToTensor()(img)
-        lab = torch.zeros(7, 12)
+        lab = torch.zeros(8, 12)
         lab[len(labels)][-1] = 1
         for i, l in enumerate(labels):
             lab[i][int(l)] = 1
