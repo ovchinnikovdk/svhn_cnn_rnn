@@ -1,23 +1,23 @@
 import torch
-from torchvision.models.resnet import resnet18
-from torch.nn.utils.rnn import pack_padded_sequence
+from torchvision.models.resnet import resnet50
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 class ConvNet(torch.nn.Module):
     def __init__(self, rnn_hidden=256, out_size=12):
         super(ConvNet, self).__init__()
         self.rnn_hidden = rnn_hidden
-        self.num_layers = 16
+        self.num_layers = 8
         self.out_size = out_size
-        self.lstm_input_size = 64
-        self.encoder = resnet18(pretrained=True)
-        # for param in self.encoder.parameters():
-        #     param.requires_grad = False
+        self.lstm_input_size = out_size
+        self.encoder = resnet50(pretrained=True)
+        for param in list(self.encoder.parameters())[:-2]:
+            param.requires_grad = False
         print(self.encoder.fc.in_features, self.num_layers * self.rnn_hidden)
         self.encoder.fc = torch.nn.Sequential(
             torch.nn.Linear(self.encoder.fc.in_features, self.encoder.fc.in_features),
             torch.nn.Dropout(0.4),
-            torch.nn.Linear(self.encoder.fc.in_features, self.lstm_input_size - self.out_size))
+            torch.nn.Linear(self.encoder.fc.in_features, self.rnn_hidden * self.num_layers))
         self.lstm = torch.nn.LSTM(input_size=self.lstm_input_size,
                                   hidden_size=rnn_hidden,
                                   num_layers=self.num_layers,
@@ -29,20 +29,18 @@ class ConvNet(torch.nn.Module):
         self.hidden_w = None
 
     def forward(self, data):
-        img, nums = data[0], data[1]
+        img, nums, lengths = data[0], data[1], data[2]
         features = self.encoder(img)
         start = torch.zeros(nums.shape[0], 1, nums.shape[2]).cuda()
-        start[0, 0, 0] = 1
+        start[:, 0, 0] = 1
+        nums = nums[:, :-1, :]
         nums = torch.cat((start, nums), 1)
-        a = torch.zeros(nums.shape[0], nums.shape[1], self.lstm_input_size).cuda()
-        a[:, :, :nums.shape[2]] = nums
-        for i in range(nums.shape[0]):
-            a[i, :, nums.shape[2]:] = features[i]
-        nums = a
-        h = torch.zeros(self.num_layers, nums.shape[0], self.rnn_hidden).cuda()
+        nums = pack_padded_sequence(nums, lengths, batch_first=True, enforce_sorted=False)
+        h = features.permute(1, 0).contiguous().view(self.num_layers, img.shape[0], self.rnn_hidden)
         out, self.hidden_w = self.lstm(nums, (h, torch.zeros_like(h)))
-        out = self.linear(out)[:, :-1, :]
-        return torch.nn.Softmax(dim=2)(out)
+        out, _ = pad_packed_sequence(out, batch_first=True, total_length=8)
+        out = self.linear(out)
+        return out
 
     def init_hidden(self, batch_size):
         hidden = torch.zeros(self.num_layers, batch_size, self.rnn_hidden)
@@ -51,17 +49,21 @@ class ConvNet(torch.nn.Module):
     def predict(self, imgs):
         features = self.encoder(imgs)
         sampled_ids = []
-        states = (torch.zeros(self.num_layers, imgs.shape[0], self.rnn_hidden).cuda(),
-                  torch.zeros(self.num_layers, imgs.shape[0], self.rnn_hidden).cuda())
-        inputs = torch.zeros(imgs.shape[0], 1, self.lstm_input_size).cuda()
-        inputs[0, 0, 0] = 1
-        inputs[:, 0, self.out_size:] = features
-        for i in range(7):
+        h = features.permute(1, 0).contiguous().view(self.num_layers, imgs.shape[0], self.rnn_hidden)
+        states = (h,
+                  torch.zeros_like(h))
+        inputs = torch.zeros(imgs.shape[0], 1, self.out_size).cuda()
+        inputs[:, 0, 0] = 1
+        for i in range(8):
             hiddens, states = self.lstm(inputs, states)
             outputs = self.linear(hiddens.squeeze(1))
-            print(outputs)
+            # print(outputs)
             _, predicted = outputs.max(1)
             sampled_ids.append(predicted)
-            inputs = torch.cat((outputs, features), 1).unsqueeze(1)
+            inputs = outputs.unsqueeze(1)
+            inputs = torch.zeros_like(inputs)
+            # print(inputs.shape, predicted.shape)
+            for i in range(inputs.shape[0]):
+                inputs[i, 0, predicted[i].item()] = 1
         sampled_ids = torch.stack(sampled_ids, 1)
         return sampled_ids.detach().cpu().numpy()

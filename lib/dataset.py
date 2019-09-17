@@ -5,6 +5,7 @@ import h5py
 import cv2
 import os
 import numpy as np
+from torch.nn.utils.rnn import pack_padded_sequence
 
 
 class HouseNumberTrainDataset(Dataset):
@@ -18,8 +19,11 @@ class HouseNumberTrainDataset(Dataset):
             self.transform = None
 
     def __len__(self):
-        # return min(12000, len(self.meta_file['digitStruct/name']))
-        return len(self.meta_file['digitStruct/name'])
+        # return len(self.meta_file['digitStruct/name'])
+        if 'test' in self.path:
+            return 3000
+        else:
+            return 10560
 
     def __getitem__(self, idx):
         filename = self._get_name(idx)
@@ -31,11 +35,12 @@ class HouseNumberTrainDataset(Dataset):
         else:
             img = torchvision.transforms.ToTensor()(img)
         lab = torch.zeros(8, 12)
-        for i in range(len(labels), 8):
-            lab[i][-1] = 1
+        # for i in range(len(labels), 8):
+        #     lab[i][-1] = 1
+        lab[len(labels)][-1] = 1
         for i, l in enumerate(labels):
             lab[i][int(l)] = 1
-        return (img, lab), lab
+        return (img, lab, len(labels) + 1), lab
 
     def _get_name(self, index):
         name = self.meta_file['/digitStruct/name']
@@ -78,7 +83,15 @@ def collate_fn(data):
     return images, targets, lengths
 
 
-def get_loader(path, hdf5_path, transform_func=None, batch_size=64, shuffle=True):
+def get_transforms():
+    lst = [
+        torchvision.transforms.ToTensor(),
+        # torchvision.transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    ]
+    return torchvision.transforms.Compose(lst)
+
+
+def get_loader(path, hdf5_path, transform_func=get_transforms, batch_size=64, shuffle=True):
     dataset = HouseNumberTrainDataset(path, hdf5_path, transform_func)
     data_loader = torch.utils.data.DataLoader(dataset=dataset,
                                               batch_size=batch_size,
