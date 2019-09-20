@@ -1,12 +1,13 @@
 from models.cnn import ConvNet
 from torchvision.transforms import ToTensor
+from lib.dataset import get_transforms, HouseNumberTrainDataset
 import torch
 import cv2
 import os
 import numpy as np
 
 model_path = 'logdir/checkpoints/best.pth'
-model = ConvNet(rnn_hidden=64)
+model = ConvNet(rnn_hidden=32)
 model.load_state_dict(torch.load(model_path)['model_state_dict'])
 model.cuda()
 model.eval()
@@ -20,21 +21,25 @@ if not os.path.exists('predicted'):
 def pred2number(predictions):
     print(predictions)
     res = []
-    # for i in range(np.where(predictions == 11)[0][0]):
-    #     res.append(predictions[i] if predictions[i] != 10 else 0)
-    # return res
-    return predictions
+    for i in range(np.where(predictions == 11)[0][0]):
+        res.append(predictions[i] if predictions[i] != 10 else 0)
+    return res
+    # return predictions
 
 
 test_path = os.path.join('data', 'test')
-imgs = list(filter(lambda x: '.png' in x or '.jpg' in x, os.listdir(test_path)))
-for img_name in np.random.choice(imgs, size=20):
-    img = cv2.imread(os.path.join(test_path, img_name))
-    img = cv2.resize(img, (128, 128))
-    img = ToTensor()(img).cuda()
-    img = img[None]
-    predictions = model.predict(img)
+dataset = HouseNumberTrainDataset(test_path, 'data/test.mat', get_transforms)
+
+for idx in np.random.choice(list(range(len(dataset))), size=30):
+    img = dataset[idx][0][0].cuda()
+    print(img.min(), img.max())
+    predictions = model.predict(img[None])
+    print(predictions)
     predictions = pred2number(predictions[0])
-    print(img_name, predictions)
-    cv2.imwrite('predicted/'+ img_name + '_' + ''.join([str(num) for num in predictions]) + '.png',
-                cv2.imread(os.path.join(test_path, img_name)))
+    print(idx, predictions)
+    res = ''.join([str(num) for num in predictions])
+    np_img = img.permute(1, 2, 0).detach().cpu().numpy()
+    cv2.imshow(res, np_img)
+    cv2.waitKey()
+    # cv2.imwrite(f"predicted/{idx}_{res}.png",
+    #             np_img)

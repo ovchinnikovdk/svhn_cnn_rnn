@@ -5,9 +5,9 @@ from catalyst.dl import SupervisedRunner
 from catalyst.dl.callbacks import AUCCallback, F1ScoreCallback
 import collections
 import os
-from lib.loss import CELoss
+from lib.loss import CustomLoss
 
-model = ConvNet(rnn_hidden=64)
+model = ConvNet(rnn_hidden=32)
 model = model.cuda()
 
 # experiment setup
@@ -19,7 +19,7 @@ num_epochs = 20
 loaders = collections.OrderedDict()
 loaders["train"] = get_loader(os.path.join('data', 'train'),
                               os.path.join('data', 'train.mat'),
-                              batch_size=96,
+                              batch_size=32,
                               shuffle=True)
 loaders["valid"] = get_loader(os.path.join('data', 'test'),
                               os.path.join('data', 'test.mat'),
@@ -27,8 +27,9 @@ loaders["valid"] = get_loader(os.path.join('data', 'test'),
                               shuffle=False)
 
 
-criterion = CELoss()
-# criterion = torch.nn.BCELoss()
+criterion = CustomLoss()
+# criterion = torch.nn.NLLLoss()
+# criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=2)
 

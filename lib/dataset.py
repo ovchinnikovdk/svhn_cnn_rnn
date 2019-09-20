@@ -21,9 +21,9 @@ class HouseNumberTrainDataset(Dataset):
     def __len__(self):
         # return len(self.meta_file['digitStruct/name'])
         if 'test' in self.path:
-            return 3000
+            return 2000
         else:
-            return 10560
+            return len(self.meta_file['digitStruct/name'])
 
     def __getitem__(self, idx):
         filename = self._get_name(idx)
@@ -32,15 +32,15 @@ class HouseNumberTrainDataset(Dataset):
         img = cv2.resize(img, (128, 128))
         if self.transform is not None:
             img = self.transform(img)
-        else:
-            img = torchvision.transforms.ToTensor()(img)
         lab = torch.zeros(8, 12)
-        # for i in range(len(labels), 8):
-        #     lab[i][-1] = 1
-        lab[len(labels)][-1] = 1
+        target = torch.zeros(8, 12)
+        lab[0][0] = 1
+        target[len(labels)][-1] = 1
+
         for i, l in enumerate(labels):
-            lab[i][int(l)] = 1
-        return (img, lab, len(labels) + 1), lab
+            target[i][int(l)] = 1
+            lab[i + 1][int(l)] = 1
+        return (img, lab, len(labels) + 1), target
 
     def _get_name(self, index):
         name = self.meta_file['/digitStruct/name']
