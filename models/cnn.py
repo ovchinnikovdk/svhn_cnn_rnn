@@ -1,5 +1,5 @@
 import torch
-from torchvision.models.alexnet import alexnet
+from torchvision.models.resnet import resnet18
 from models.inception import beheaded_inception_v3
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
@@ -11,17 +11,17 @@ class ConvNet(torch.nn.Module):
         self.num_layers = 4
         self.out_size = out_size
         self.lstm_input_size = out_size
-        self.encoder = beheaded_inception_v3(pretrained=True)
+        self.encoder = resnet18(pretrained=True)
         # Disable grad
         # for param in self.encoder.parameters():
         #     param.requires_grad = False
         # for param in self.encoder.layer4.parameters():
         #     param.requires_grad = True
-
+        self.encoder.fc = torch.nn.Linear(self.encoder.fc.in_features, 512)
         self.cnn2h0 = torch.nn.Sequential(torch.nn.Dropout(0.4),
-                                          torch.nn.Linear(2048, self.num_layers * self.rnn_hidden))
+                                          torch.nn.Linear(512, self.num_layers * self.rnn_hidden))
         self.cnn2c0 = torch.nn.Sequential(torch.nn.Dropout(0.4),
-                                          torch.nn.Linear(2048,
+                                          torch.nn.Linear(512,
                                                           self.num_layers * self.rnn_hidden))
         self.lstm = torch.nn.LSTM(input_size=self.lstm_input_size,
                                   hidden_size=rnn_hidden,
@@ -52,7 +52,6 @@ class ConvNet(torch.nn.Module):
     def predict(self, imgs):
         features = self.encoder(imgs)
         sampled_ids = []
-        # h = features.permute(1, 0).contiguous().view(self.num_layers, imgs.shape[0], self.rnn_hidden)
         h0 = self.cnn2h0(features).view(self.num_layers, imgs.shape[0], self.rnn_hidden)
         c0 = self.cnn2c0(features).view(self.num_layers, imgs.shape[0], self.rnn_hidden)
         states = (h0, c0)

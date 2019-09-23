@@ -12,6 +12,5 @@ class CustomLoss(torch.nn.Module):
         label[indices[:, 0], indices[:, 1]] = indices[:, -1]
         loss = 0
         for i in range(target.shape[1]):
-            if label[:, i].item() != 0:
-                loss += self.loss(input[:, i, :], label[:, i])
+            loss += self.loss(input[:, i, :], label[:, i])
         return loss

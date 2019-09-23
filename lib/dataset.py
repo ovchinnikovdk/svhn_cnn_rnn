@@ -29,13 +29,15 @@ class HouseNumberTrainDataset(Dataset):
         filename = self._get_name(idx)
         labels = self._get_labels(idx)
         img = cv2.imread(os.path.join(self.path, filename))
-        img = cv2.resize(img, (128, 128))
+        img = cv2.resize(img, (224, 224))
         if self.transform is not None:
             img = self.transform(img)
         lab = torch.zeros(8, 12)
         target = torch.zeros(8, 12)
         lab[0][0] = 1
         target[len(labels)][-1] = 1
+        # for i in range(len(labels), 8):
+        #     target[i][-1] = 1
 
         for i, l in enumerate(labels):
             target[i][int(l)] = 1
